@@ -1,0 +1,1 @@
+{"version":3,"file":"MutationResult.js","sourceRoot":"","sources":["../../src/class/MutationResult.ts"],"names":[],"mappings":";;;AAAA,MAAa,cAAc;IACzB,YAAY,UAA0B,EAAE,QAAwB;QAOhE,YAAO,GAAG,IAAI,CAAC;QACf,cAAS,GAAW,IAAI,IAAI,EAAE,CAAC,OAAO,EAAE,CAAC;QAPvC,IAAI,CAAC,UAAU,GAAG,UAAU,CAAC;QAC7B,IAAI,CAAC,QAAQ,GAAG,QAAQ,CAAC;IAC3B,CAAC;CAMF;AAVD,wCAUC"}

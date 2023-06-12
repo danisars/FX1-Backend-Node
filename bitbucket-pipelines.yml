@@ -1,0 +1,209 @@
+options:
+  docker: true
+
+pipelines:
+  pull-requests:
+    "**":
+      - step: &unit-tests-admin
+          image: node:14
+          caches:
+            - docker
+          name: Test Admin CMS (Dev)
+          deployment: dev-admin-build
+          condition:
+            changesets:
+              includePaths:
+                - "api-admin/**"
+                - "lib-api-common/**"
+                - "lib-mongoose/**"
+                - "bitbucket-pipelines.yml"
+          script:
+            - npm i -g npm
+            - npm i typescript -g
+            - npm i ts-node -g
+            - cd lib-mongoose
+            - npm i --unsafe-perm
+            - cd ..
+            - cd lib-api-common
+            - npm i --unsafe-perm
+            - cd ..
+            - cd api-admin
+            - npm i $(npm pack ../lib-mongoose | tail -1)
+            - npm i $(npm pack ../lib-api-common | tail -1)
+            - npm i
+            - MONGODB_URI=$MONGODB_URI_AUTOMATED_TEST npm run test
+      - step: &unit-tests-public
+          image: node:14
+          caches:
+            - docker
+          name: Test Public (Dev)
+          deployment: dev-build
+          condition:
+            changesets:
+              includePaths:
+                - "api-public/**"
+                - "lib-api-common/**"
+                - "lib-mongoose/**"
+                - "bitbucket-pipelines.yml"
+          script:
+            - npm i -g npm
+            - npm i typescript -g
+            - npm i ts-node -g
+            - cd lib-mongoose
+            - npm i --unsafe-perm
+            - cd ..
+            - cd lib-api-common
+            - npm i --unsafe-perm
+            - cd ..
+            - cd api-public
+            - npm i $(npm pack ../lib-mongoose | tail -1)
+            - npm i $(npm pack ../lib-api-common | tail -1)
+            - npm i
+            - MONGODB_URI=$MONGODB_URI_AUTOMATED_TEST npm run test
+  branches:
+    develop:
+      - step: &build-api-public
+          image: node:14
+          caches:
+            - docker
+          name: Build Public (Dev)
+          deployment: dev-build
+          condition:
+            changesets:
+              includePaths:
+                - "api-public/**"
+                - "lib-api-common/**"
+                - "lib-mongoose/**"
+                - "bitbucket-pipelines.yml"
+          script:
+            - npm i -g envreplace
+            - npm i -g npm
+            - npm i typescript -g
+            - npm i ts-node -g
+            - cd lib-mongoose
+            - npm i --unsafe-perm
+            - cd ..
+            - cd lib-api-common
+            - npm i --unsafe-perm
+            - cd ..
+            - cd api-public
+            - npm i $(npm pack ../lib-mongoose | tail -1)
+            - npm i $(npm pack ../lib-api-common | tail -1)
+            - npm i
+            - MONGODB_URI=$MONGODB_URI_AUTOMATED_TEST npm run test
+            - rm -rf ./node_modules/sharp
+            - envreplace k8s.yaml
+          artifacts:
+            - api-public/**
+      - step: &deploy-api-public
+          image: google/cloud-sdk:latest
+          caches:
+            - docker
+          name: Image and Deploy (Dev)
+          deployment: dev-deploy
+          condition:
+            changesets:
+              includePaths:
+                - "api-public/**"
+                - "lib-api-common/**"
+                - "lib-mongoose/**"
+                - "bitbucket-pipelines.yml"
+          script:
+            - cd api-public
+            - echo $GCLOUD_API_KEY | base64 -d > /tmp/gcloud-api-key.json
+            - export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            - gcloud auth activate-service-account --key-file /tmp/gcloud-api-key.json
+            - gcloud config set project $GCLOUD_PROJECT
+            - gcloud auth configure-docker --quiet
+            - echo $BITBUCKET_COMMIT > ./commit.txt
+            - docker build . -t gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG -t gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG-$BITBUCKET_COMMIT
+            - docker push gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+            - docker push gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG-$BITBUCKET_COMMIT
+            - gcloud container clusters get-credentials $GKE_CLUSTER --zone=$GKE_ZONE --project $GCLOUD_PROJECT
+            - kubectl apply -f k8s.yaml
+      - step: &build-api-admin
+          image: node:14
+          caches:
+            - docker
+          name: Build Admin CMS (Dev)
+          deployment: dev-admin-build
+          condition:
+            changesets:
+              includePaths:
+                - "api-admin/**"
+                - "lib-api-common/**"
+                - "lib-mongoose/**"
+                - "bitbucket-pipelines.yml"
+          script:
+            - npm i -g envreplace
+            - npm i -g npm
+            - npm i typescript -g
+            - npm i ts-node -g
+            - cd lib-mongoose
+            - npm i --unsafe-perm
+            - cd ..
+            - cd lib-api-common
+            - npm i --unsafe-perm
+            - cd ..
+            - cd api-admin
+            - npm i
+            - npm install $(npm pack ../lib-mongoose | tail -1)
+            - npm install $(npm pack ../lib-api-common | tail -1)
+            - MONGODB_URI=$MONGODB_URI_AUTOMATED_TEST npm run test
+            - envreplace k8s.yaml
+          artifacts:
+            - api-admin/**
+      - step: &deploy-api-admin
+          image: google/cloud-sdk:latest
+          caches:
+            - docker
+          name: Image and Deploy Admin CMS (Dev)
+          deployment: dev-admin-deploy
+          condition:
+            changesets:
+              includePaths:
+                - "api-admin/**"
+                - "lib-api-common/**"
+                - "lib-mongoose/**"
+                - "bitbucket-pipelines.yml"
+          script:
+            - cd api-admin
+            - echo $GCLOUD_API_KEY | base64 -d > /tmp/gcloud-api-key.json
+            - export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            - gcloud auth activate-service-account --key-file /tmp/gcloud-api-key.json
+            - gcloud config set project $GCLOUD_PROJECT
+            - gcloud auth configure-docker --quiet
+            - echo $BITBUCKET_COMMIT > ./commit.txt
+            - docker build . -t gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG -t gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG-$BITBUCKET_COMMIT
+            - docker push gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG
+            - docker push gcr.io/$GCLOUD_PROJECT/$IMAGE_NAME:$IMAGE_TAG-$BITBUCKET_COMMIT
+            - gcloud container clusters get-credentials $GKE_CLUSTER --zone=$GKE_ZONE --project $GCLOUD_PROJECT
+            - kubectl apply -f k8s.yaml
+
+    staging:
+      - step:
+          <<: *build-api-public
+          name: Build Public (Staging)
+          deployment: stag-build
+      - step:
+          <<: *deploy-api-public
+          name: Image and Deploy (Staging)
+          deployment: stag-deploy
+
+    master:
+      - step:
+          <<: *build-api-admin
+          name: Build Admin CMS (Prod)
+          deployment: prod-admin-build
+      - step:
+          <<: *deploy-api-admin
+          name: Image and Deploy Admin CMS (Prod)
+          deployment: prod-admin-deploy
+      - step:
+          <<: *build-api-public
+          name: Build Public (Prod)
+          deployment: prod-build
+      - step:
+          <<: *deploy-api-public
+          name: Image and Deploy (Prod)
+          deployment: prod-deploy

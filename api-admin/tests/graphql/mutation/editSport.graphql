@@ -1,0 +1,8 @@
+mutation editSport($id: String!, $input: InputSport!) {
+  result: editSport(id: $id, input: $input) {
+    objectType
+    objectID
+    success
+    timestamp
+  }
+}

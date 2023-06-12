@@ -1,0 +1,8 @@
+mutation editLeague($id: String!, $input: InputLeague!) {
+   result: editLeague(id: $id, input: $input) {
+        objectID
+        objectType
+        success
+        timestamp
+    }
+}

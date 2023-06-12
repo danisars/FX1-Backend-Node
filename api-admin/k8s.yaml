@@ -1,0 +1,111 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: fx1-admin
+  labels:
+    name: fx1-admin
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fx1-admin-backend-config-map
+  namespace: fx1-admin
+data:
+  APP_ENV: "${env.APP_ENV}"
+  PORT: "${env.PORT}"
+  MAILGUN_DOMAIN: ${env.MAILGUN_DOMAIN}
+  REDIRECTING_DOMAIN_FX1: ${env.REDIRECTING_DOMAIN_FX1}
+  REDIRECTING_DOMAIN_CMS: ${env.REDIRECTING_DOMAIN_CMS}
+  BASE_URL: ${env.BASE_URL}
+  ARE_YOU_WATCHING_THIS_URL: ${env.ARE_YOU_WATCHING_THIS_URL}
+---
+apiVersion: v1
+kind: Secret
+stringData:
+  MONGODB_URI: ${env.MONGODB_URI}
+  GOOGLE_APPLICATION_CREDENTIALS_CMS: ${env.GOOGLE_APPLICATION_CREDENTIALS_CMS}
+  MAILGUN_API_KEY: ${env.MAILGUN_API_KEY}
+  SENDGRID_API_KEY: ${env.SENDGRID_API_KEY}
+  ARE_YOU_WATCHING_THIS_API_KEY: ${env.ARE_YOU_WATCHING_THIS_API_KEY}
+  FIREBASE_CONFIG_CMS: ${env.FIREBASE_CONFIG_CMS}
+metadata:
+  name: fx1-admin-backend-secrets
+  namespace: fx1-admin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fx1-admin-backend-deployment
+  namespace: fx1-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: fx1-admin-backend-deployment
+  template:
+    metadata:
+      labels:
+        component: fx1-admin-backend-deployment
+    spec:
+      containers:
+        - name: fx1-admin-backend
+          image: gcr.io/${env.GCLOUD_PROJECT}/fx1-admin-backend-deployment:${env.IMAGE_TAG}-${env.BITBUCKET_COMMIT}
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: fx1-admin-backend-config-map
+            - secretRef:
+                name: fx1-admin-backend-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fx1-admin-backend-service
+  namespace: fx1-admin
+spec:
+  type: ClusterIP
+  selector:
+    component: fx1-admin-backend-deployment
+  ports:
+    - name: http
+      targetPort: 8080
+      port: 8080
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: fx1-admin-backend-certificate
+  namespace: fx1-admin
+spec:
+  domains:
+      - ${env.DOMAIN}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fx1-admin-backend-ingress
+  namespace: fx1-admin
+  labels:
+    app: fx1-admin-backend-deployment
+  annotations:
+    networking.gke.io/v1beta1.FrontendConfig: fx1-admin-backend-frontend
+    # kubernetes.io/ingress.global-static-ip-name: fx1-admin-backend-ip
+    networking.gke.io/managed-certificates: fx1-admin-backend-certificate
+spec:
+  rules:
+    - host: "${env.DOMAIN}"
+      http:
+        paths:
+          - path: "/*"
+            pathType: Prefix
+            backend:
+              service:
+                name: fx1-admin-backend-service
+                port:
+                  number: 8080
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: fx1-admin-backend-frontend
+  namespace: fx1-admin

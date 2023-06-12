@@ -1,0 +1,25 @@
+query getSports{
+  result: getSports {
+    count
+    total
+    items {
+      id
+      createdAt
+      updatedAt
+      name
+      slug
+      Avatar {
+          objectID
+          objectType
+          isSport
+          PhotoURL
+      }
+      CoverPhoto {
+          objectID
+          objectType
+          isSport
+          PhotoURL
+      }
+    }
+  }
+}

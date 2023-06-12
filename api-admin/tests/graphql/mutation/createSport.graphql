@@ -1,0 +1,8 @@
+mutation createSport($input: InputSport!) {
+  result: createSport(input: $input) {
+    objectType
+    objectID
+    success
+    timestamp
+  }
+}

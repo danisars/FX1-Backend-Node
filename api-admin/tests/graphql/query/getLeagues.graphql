@@ -1,0 +1,25 @@
+query getLeagues{
+   result: getLeagues{
+        count
+        total
+        next
+        items {
+            id
+            createdAt
+            updatedAt
+            name
+            slug
+            sportIDs
+            Avatar {
+              objectID
+              objectType
+              PhotoURL
+            }
+           CoverPhoto {
+             objectID
+             objectType
+             PhotoURL
+           }
+        }
+    }
+}
